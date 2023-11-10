@@ -10,8 +10,22 @@ ENV HOME="/root"
 RUN apt-get update && apt-get install -y apt-transport-https ca-certificates apt-utils
 
 # Install the basic build essentials
-COPY ./sources.list /etc/apt/
-RUN apt-get update && apt-get install -y binutils build-essential cmake x11-xserver-utils unrar ssh-client
+# COPY ./sources.list /etc/apt/
+RUN apt-get update && \
+    apt-get install -y \
+            binutils \
+            build-essential \
+            cmake \
+            x11-xserver-utils \
+            unrar \
+            unzip \
+            ssh-client \
+            wget \
+            curl \
+            lsb-release \
+            software-properties-common \
+            gnupg \
+            bubblewrap
 
 # Install the supported languages
 RUN apt-get install -y \
@@ -22,7 +36,10 @@ RUN apt-get install -y \
             g++ \
             python \
             openjdk-11-jdk-headless \
-            octave
+            octave \
+            clang-tools \
+            clang-format \
+            clang-tidy
 
 #            fp-compiler \
 #            php7.0-cli \
@@ -41,18 +58,26 @@ RUN apt-get install -y libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev libgmp-dev
 RUN apt-get install -y googletest && \
     cd /usr/src/googletest && \
     cmake . && make -j4 && make install
-    
-# Install clang tools
-RUN apt-get install -y clang-tools clang-format clang-tidy
+
+# Install llvm 17
+COPY ./register-clang-version.sh /
+RUN wget https://apt.llvm.org/llvm.sh && \
+    /bin/bash ./llvm.sh 17 && \
+    rm llvm.sh && \
+    # /bin/bash ./register-clang-version.sh 17 1 && \
+    rm ./register-clang-version.sh
 
 # Install llvm tools
 RUN apt-get install -y llvm
 
 # Install ocaml
-RUN apt-get install -y ocaml
+RUN bash -c "yes '' | sh <(curl -fsSL https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh)" && \
+    bash -c "opam init --disable-sandboxing --auto-setup -y"
+ENV PATH="/root/.opam/default/bin:${PATH}"
+ENV OPAM_SWITCH_PREFIX="/root/.opam/default"
+ENV CAML_LD_LIBRARY_PATH="/root/.opam/default/lib/stublibs:/root/.opam/default/lib/ocaml/stublibs:/root/.opam/default/lib/ocaml"
+ENV OCAML_TOPLEVEL_PATH="/root/.opam/default/lib/toplevel"
 
-# Install additional python packages
-RUN pip3 install ortools
 
 COPY ./requirements.txt ./setup.py /srv/jd4/
 WORKDIR /srv/jd4
